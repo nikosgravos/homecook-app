@@ -1,8 +1,16 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-zinc-200 px-8 py-6 dark:border-zinc-800">
+      <header className="flex items-center justify-between border-b border-zinc-200 px-8 py-6 dark:border-zinc-800">
         <h1 className="text-2xl font-semibold tracking-tight">homecook-app</h1>
+        <Link
+          href="/login"
+          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          Log in
+        </Link>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-8 py-16 text-center">
         <h2 className="text-3xl font-semibold tracking-tight">
