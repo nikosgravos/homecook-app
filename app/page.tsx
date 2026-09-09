@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-black/[.08] px-8 py-6 dark:border-white/[.145]">
+      <header className="border-b border-zinc-200 px-8 py-6 dark:border-zinc-800">
         <h1 className="text-2xl font-semibold tracking-tight">homecook-app</h1>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-8 py-16 text-center">
