@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+// TODO: confirm/update this once the main page route is renamed
+const MAIN_PATH = "/chef/dashboard";
 
 type Option = { id: string; label: string; emoji: string };
 type CategoryKey = "allergies" | "cuisines" | "foods";
@@ -101,6 +106,7 @@ function emptyState(): Record<CategoryKey, CategoryState> {
 }
 
 export default function QuizPage() {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [state, setState] = useState<Record<CategoryKey, CategoryState>>(emptyState);
   const [inputs, setInputs] = useState<Record<CategoryKey, string>>({
@@ -108,6 +114,7 @@ export default function QuizPage() {
     cuisines: "",
     foods: "",
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const done = step >= STEPS.length;
   const current = STEPS[Math.min(step, STEPS.length - 1)];
@@ -168,6 +175,55 @@ export default function QuizPage() {
     });
   }
 
+  function toAnswers(key: CategoryKey, cat: CategoryState) {
+    const predefined = STEPS.find((s) => s.key === key)!.options;
+    return [...cat.selected].map((id) => {
+      const custom = cat.custom.find((o) => o.id === id);
+      if (custom) return { id: custom.id, label: custom.label };
+      const found = predefined.find((o) => o.id === id)!;
+      return { id: found.id, label: found.label };
+    });
+  }
+
+  async function saveQuiz(status: "submitted" | "skipped" | "opted_out") {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const payload: Record<string, unknown> = { user_id: user.id, status };
+    if (status === "submitted") {
+      payload.allergies = toAnswers("allergies", state.allergies);
+      payload.cuisines = toAnswers("cuisines", state.cuisines);
+      payload.foods = toAnswers("foods", state.foods);
+      payload.submitted_at = new Date().toISOString();
+    }
+
+    await supabase.from("onboarding_quiz").upsert(payload);
+  }
+
+  async function handleFinish() {
+    setSubmitting(true);
+    await saveQuiz("submitted");
+    setSubmitting(false);
+    next();
+  }
+
+  async function handleSkip() {
+    setSubmitting(true);
+    await saveQuiz("skipped");
+    router.push(MAIN_PATH);
+    router.refresh();
+  }
+
+  async function handleOptOut() {
+    setSubmitting(true);
+    await saveQuiz("opted_out");
+    router.push(MAIN_PATH);
+    router.refresh();
+  }
+
   function next() {
     setStep((s) => Math.min(s + 1, STEPS.length));
   }
@@ -215,18 +271,33 @@ export default function QuizPage() {
         </ol>
 
         {!done && (
-          <Link
-            href="/"
-            className="shrink-0 text-sm font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-          >
-            Skip for now
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleOptOut}
+              disabled={submitting}
+              className="shrink-0 text-sm font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-white"
+            >
+              Don&apos;t ask again
+            </button>
+            <button
+              type="button"
+              onClick={handleSkip}
+              disabled={submitting}
+              aria-label="Skip for now"
+              className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+              </svg>
+            </button>
+          </div>
         )}
       </header>
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-10 sm:px-8">
         {done ? (
-          <DoneScreen state={state} onEdit={() => setStep(0)} />
+          <DoneScreen state={state} onEdit={() => setStep(0)} mainPath={MAIN_PATH} />
         ) : (
           <>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{current.title}</h1>
@@ -299,10 +370,11 @@ export default function QuizPage() {
               </button>
               <button
                 type="button"
-                onClick={next}
-                className="rounded-md bg-zinc-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                onClick={step === STEPS.length - 1 ? handleFinish : next}
+                disabled={submitting}
+                className="rounded-md bg-zinc-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
-                {step === STEPS.length - 1 ? "Finish" : "Continue"}
+                {submitting ? "Saving…" : step === STEPS.length - 1 ? "Finish" : "Continue"}
               </button>
             </div>
           </>
@@ -315,9 +387,11 @@ export default function QuizPage() {
 function DoneScreen({
   state,
   onEdit,
+  mainPath,
 }: {
   state: Record<CategoryKey, CategoryState>;
   onEdit: () => void;
+  mainPath: string;
 }) {
   const counts = {
     allergies: state.allergies.selected.size,
@@ -343,7 +417,7 @@ function DoneScreen({
           Edit answers
         </button>
         <Link
-          href="/"
+          href={mainPath}
           className="rounded-md bg-zinc-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           Start exploring

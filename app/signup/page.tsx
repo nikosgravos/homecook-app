@@ -5,19 +5,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Role = "consumer" | "chef";
-
 export default function SignupPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [role, setRole] = useState<Role>("consumer");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,7 +23,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role } },
+      options: { data: { full_name: fullName } },
     });
 
     setLoading(false);
@@ -37,24 +33,8 @@ export default function SignupPage() {
       return;
     }
 
-    setDone(true);
-  }
-
-  if (done) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center px-8 py-16 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
-        <p className="mt-2 max-w-sm text-sm text-zinc-600 dark:text-zinc-400">
-          We sent a confirmation link to {email}. Confirm it, then log in.
-        </p>
-        <Link
-          href="/login"
-          className="mt-6 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          Go to login
-        </Link>
-      </div>
-    );
+    router.push("/quiz");
+    router.refresh();
   }
 
   return (
@@ -62,33 +42,8 @@ export default function SignupPage() {
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold tracking-tight">Sign up</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Join homecook-app as a consumer or a home chef.
+          Join homecook-app.
         </p>
-
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setRole("consumer")}
-            className={`rounded-md border px-4 py-3 text-sm font-medium transition-colors ${
-              role === "consumer"
-                ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
-                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            }`}
-          >
-            I want to order food
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole("chef")}
-            className={`rounded-md border px-4 py-3 text-sm font-medium transition-colors ${
-              role === "chef"
-                ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
-                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            }`}
-          >
-            I want to cook & sell
-          </button>
-        </div>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">

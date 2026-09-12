@@ -15,34 +15,42 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
     async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setLoading(false);
-      setError(error.message);
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
+  if (error) {
     setLoading(false);
-
-    if (profile?.role === "chef") {
-      router.push("/chef/dashboard");
-    } else {
-      router.push("/");
-    }
-
-    router.refresh();
+    setError(error.message);
+    return;
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.user.id)
+    .single();
+
+  const { data: quiz } = await supabase
+    .from("onboarding_quiz")
+    .select("status")
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+
+  setLoading(false);
+
+  const needsQuiz = !quiz || quiz.status === "skipped";
+
+  if (needsQuiz) {
+    router.push("/quiz");
+  } else  {
+    router.push("/chef/dashboard");
+  }
+
+  router.refresh();
+}
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-16">
